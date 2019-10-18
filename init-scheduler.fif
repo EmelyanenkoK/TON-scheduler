@@ -1,0 +1,52 @@
+#!/usr/bin/fift -s
+"TonUtil.fif" include
+"Asm.fif" include
+
+
+$1 parse-int =: public_key
+$2 parse-int =: wc
+$3 parse-int =: scylla?
+
+{ scylla?
+         { 452312848583266388373324160190187140051835877600158453279131187530910662656 < }
+         { 115339776388732929035197660848497720713218148788040405586178452820382218977279 > }
+  cond  } : check?
+
+"scheduler.fif" include <s =: contract_code
+
+0 // random_int
+0 // false
+  {
+    1+
+    dup
+    <b 0 8 u, 0 32 u, public_key 256 u, b{00} s, swap 16 u, 0xFFFFFFFF 32 u, dictnew dict, b>
+    <b b{00110} s, <b contract_code s, b> ref, swap ref, b>
+    hashu
+    check?
+  }
+until
+=: random_int
+
+<b 0 8 u, 0 32 u, public_key 256 u, b{00} s, random_int 16 u, 0xFFFFFFFF 32 u, dictnew dict, b> =: contract_storage 
+<b b{00110} s, <b contract_code s, b> ref, contract_storage ref, b>
+dup =: state_init
+
+dup hashu wc swap 2constant contract_address
+."scheduler address = " contract_address .addr cr
+
+
+."Non-bounceable address (for init): " contract_address 7 .Addr cr
+."Bounceable address (for later access): " contract_address 6 .Addr cr
+
+<b 0 8 u, b> <s =: init_message 
+<b b{1000100} s, contract_address addr, b{000010} s, state_init <s s, b{0} s, init_message s, b>
+2 boc+>B
+
+scylla?
+         { "scylla-init.boc" }
+         { "charybdis-init.boc" }
+cond 
+
+tuck B>file
+."(Saved scheduler contract creating query to file " type .")" cr
+
